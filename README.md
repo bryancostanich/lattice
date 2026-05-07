@@ -62,4 +62,4 @@ Display UUIDs are logged to `/tmp/lattice.log` on launch.
 
 ## License
 
-MIT.
+Apache 2.0. See [LICENSE](LICENSE).
