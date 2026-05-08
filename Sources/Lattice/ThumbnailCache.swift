@@ -4,9 +4,9 @@ import CoreGraphics
 final class ThumbnailCache {
     private var cache: [UInt64: NSImage] = [:]
 
-    func capture(spaceID: UInt64) {
+    func capture(spaceID: UInt64, rect: CGRect) {
         guard let cgImage = CGWindowListCreateImage(
-            .null,
+            rect,
             [.optionOnScreenOnly],
             kCGNullWindowID,
             [.nominalResolution]

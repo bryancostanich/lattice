@@ -6,6 +6,26 @@ extension NSScreen {
     var displayID: CGDirectDisplayID? {
         deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID
     }
+
+    var cgFrame: CGRect {
+        let primary = NSScreen.screens.first { $0.frame.origin == .zero } ?? self
+        let primaryMaxY = primary.frame.height
+        return CGRect(
+            x: frame.origin.x,
+            y: primaryMaxY - frame.maxY,
+            width: frame.width,
+            height: frame.height
+        )
+    }
+
+    static func screen(forDisplayUUID uuid: String) -> NSScreen? {
+        for s in NSScreen.screens {
+            guard let did = s.displayID,
+                  let u = displayUUIDString(for: did) else { continue }
+            if u == uuid { return s }
+        }
+        return nil
+    }
 }
 
 func displayUUIDString(for displayID: CGDirectDisplayID) -> String? {
@@ -40,7 +60,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             Log.log("  display uuid=\(d.uuid) currentSpace=\(d.currentSpaceID) spaces=\(d.spaces.count) ids=\(d.spaces.map { $0.id })")
         }
         anchorManager.sync(spaceIDs: displays.flatMap { $0.spaces.map { $0.id } })
-        for d in displays { thumbs.capture(spaceID: d.currentSpaceID) }
+        for d in displays {
+            if let screen = NSScreen.screen(forDisplayUUID: d.uuid) {
+                thumbs.capture(spaceID: d.currentSpaceID, rect: screen.cgFrame)
+            }
+        }
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         Log.log("statusItem button=\(String(describing: statusItem.button))")
@@ -191,9 +215,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         showOverview()
 
-        let currentSpaces = displays.map { $0.currentSpaceID }
+        let captures: [(UInt64, CGRect)] = displays.compactMap { d in
+            guard let screen = NSScreen.screen(forDisplayUUID: d.uuid) else { return nil }
+            return (d.currentSpaceID, screen.cgFrame)
+        }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
-            for id in currentSpaces { self?.thumbs.capture(spaceID: id) }
+            for (id, rect) in captures { self?.thumbs.capture(spaceID: id, rect: rect) }
         }
     }
 
