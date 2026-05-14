@@ -83,6 +83,11 @@ final class OverviewWindow {
         p.onCancel = { [weak self] in self?.hide() }
     }
 
+    var allowsScreenshot: Bool {
+        get { panel.sharingType == .readOnly }
+        set { panel.sharingType = newValue ? .readOnly : .none }
+    }
+
     func pinToAllSpaces(_ allSpaceIDs: [UInt64]) {
         guard panel.isVisible, !allSpaceIDs.isEmpty else { return }
         let windowID = NSNumber(value: UInt32(panel.windowNumber))
@@ -93,6 +98,10 @@ final class OverviewWindow {
     }
 
     var isVisible: Bool { panel.isVisible }
+
+    var windowID: CGWindowID? {
+        panel.isVisible ? CGWindowID(panel.windowNumber) : nil
+    }
 
     func updateCurrentSpace(_ spaceID: UInt64) {
         guard let content = panel.contentView else { return }

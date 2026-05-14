@@ -52,6 +52,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let trusted = AXIsProcessTrustedWithOptions(opts)
         Log.log("accessibility trusted=\(trusted)")
 
+        let screenPreflight = CGPreflightScreenCaptureAccess()
+        Log.log("screen capture preflight=\(screenPreflight)")
+        if !screenPreflight {
+            let requested = CGRequestScreenCaptureAccess()
+            Log.log("screen capture access requested=\(requested)")
+        }
+
         config = Config.load()
 
         let displays = spaceManager.displays()
@@ -62,7 +69,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         anchorManager.sync(spaceIDs: displays.flatMap { $0.spaces.map { $0.id } })
         for d in displays {
             if let screen = NSScreen.screen(forDisplayUUID: d.uuid) {
-                thumbs.capture(spaceID: d.currentSpaceID, rect: screen.cgFrame)
+                thumbs.capture(spaceID: d.currentSpaceID, screen: screen)
             }
         }
 
@@ -195,12 +202,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let reload = NSMenuItem(title: "Reload Config", action: #selector(reloadConfig), keyEquivalent: "r")
         reload.target = self
         menu.addItem(reload)
+
+        let allowShot = NSMenuItem(title: "Allow Screenshot of Overview", action: #selector(toggleAllowScreenshot), keyEquivalent: "")
+        allowShot.target = self
+        allowShot.state = overview.allowsScreenshot ? .on : .off
+        menu.addItem(allowShot)
+
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(
             title: "Quit Lattice",
             action: #selector(NSApplication.terminate(_:)),
             keyEquivalent: "q"
         ))
+    }
+
+    private func handFocusToTopmostApp() {
+        guard let info = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
+            NSApp.deactivate()
+            return
+        }
+        let myPID = ProcessInfo.processInfo.processIdentifier
+        for dict in info {
+            guard let layer = dict[kCGWindowLayer as String] as? Int, layer == 0,
+                  let pid = dict[kCGWindowOwnerPID as String] as? Int32,
+                  pid != myPID,
+                  let app = NSRunningApplication(processIdentifier: pid) else { continue }
+            app.activate()
+            Log.log("focus handed to pid=\(pid) app=\(app.localizedName ?? "?")")
+            return
+        }
+        Log.log("no app to focus, deactivating Lattice")
+        NSApp.deactivate()
+    }
+
+    @objc private func toggleAllowScreenshot() {
+        overview.allowsScreenshot.toggle()
     }
 
     @objc private func jumpToSpace(_ sender: NSMenuItem) {
@@ -213,14 +249,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         anchorManager.sync(spaceIDs: displays.flatMap { $0.spaces.map { $0.id } })
         updateStatus()
 
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+            self?.handFocusToTopmostApp()
+        }
+
         showOverview()
 
-        let captures: [(UInt64, CGRect)] = displays.compactMap { d in
+        let captures: [(UInt64, NSScreen)] = displays.compactMap { d in
             guard let screen = NSScreen.screen(forDisplayUUID: d.uuid) else { return nil }
-            return (d.currentSpaceID, screen.cgFrame)
+            return (d.currentSpaceID, screen)
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
-            for (id, rect) in captures { self?.thumbs.capture(spaceID: id, rect: rect) }
+            for (id, screen) in captures { self?.thumbs.capture(spaceID: id, screen: screen) }
         }
     }
 

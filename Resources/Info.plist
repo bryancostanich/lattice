@@ -20,5 +20,9 @@
     <true/>
     <key>NSHumanReadableCopyright</key>
     <string>Bryan Costanich</string>
+    <key>NSScreenCaptureUsageDescription</key>
+    <string>Lattice captures screen contents per space to render thumbnails in the overview grid.</string>
+    <key>NSAccessibilityUsageDescription</key>
+    <string>Lattice uses Accessibility to raise anchor windows when switching spaces.</string>
 </dict>
 </plist>
