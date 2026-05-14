@@ -21,7 +21,44 @@ jobs:
       - name: Swift version
         run: swift --version
 
-      - name: Build release bundle
+      - name: Import codesigning cert
+        env:
+          P12_BASE64: ${{ secrets.DEVELOPER_ID_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          echo "$P12_BASE64" | base64 --decode > /tmp/cert.p12
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -t 3600 -u build.keychain
+
+          security import /tmp/cert.p12 -k build.keychain -P "$P12_PASSWORD" \
+              -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+              -s -k "$KEYCHAIN_PASSWORD" build.keychain
+
+          rm /tmp/cert.p12
+          security find-identity -v -p codesigning
+
+      - name: Setup notarytool credential
+        env:
+          P8_BASE64: ${{ secrets.APP_STORE_CONNECT_KEY_P8_BASE64 }}
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.private_keys
+          echo "$P8_BASE64" | base64 --decode > ~/.private_keys/AuthKey_${KEY_ID}.p8
+
+          xcrun notarytool store-credentials "Lattice" \
+              --key ~/.private_keys/AuthKey_${KEY_ID}.p8 \
+              --key-id "$KEY_ID" \
+              --issuer "$ISSUER_ID"
+
+      - name: Build, sign, notarize, staple
         run: ./build.sh
 
       - name: Zip
