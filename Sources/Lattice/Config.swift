@@ -5,7 +5,7 @@ struct Config: Codable {
     var defaultGrid: GridLayout?
     var wrap: Bool
 
-    static let `default` = Config(displays: [:], defaultGrid: nil, wrap: false)
+    static let `default` = Config(displays: [:], defaultGrid: nil, wrap: true)
 
     func grid(for displayUUID: String, spaceCount: Int) -> GridLayout {
         if let g = displays[displayUUID] { return g }
