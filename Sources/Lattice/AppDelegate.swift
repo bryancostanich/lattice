@@ -44,6 +44,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var config: Config = .default
     private var dismissTimer: Timer?
     private let autoDismissAfter: TimeInterval = 1.0
+    private let manualDismissAfter: TimeInterval = 3.0
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Log.log("launch")
@@ -108,10 +109,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             overview.hide()
             return
         }
-        showOverview()
+        showOverview(dismissAfter: manualDismissAfter)
     }
 
-    private func showOverview() {
+    private func showOverview(dismissAfter: TimeInterval? = nil) {
         guard let screen = NSScreen.main,
               let displayID = screen.displayID,
               let uuid = displayUUIDString(for: displayID),
@@ -133,12 +134,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             overview.pinToAllSpaces(spaceIDs)
         }
-        resetDismissTimer()
+        resetDismissTimer(interval: dismissAfter ?? autoDismissAfter)
     }
 
-    private func resetDismissTimer() {
+    private func resetDismissTimer(interval: TimeInterval) {
         dismissTimer?.invalidate()
-        dismissTimer = Timer.scheduledTimer(withTimeInterval: autoDismissAfter, repeats: false) { [weak self] _ in
+        dismissTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: false) { [weak self] _ in
             self?.overview.hide()
             self?.dismissTimer = nil
         }

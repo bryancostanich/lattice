@@ -7,7 +7,8 @@ macOS treats Spaces as a 1D list. Lattice lays them out as a 2D grid and lets yo
 ## Features
 
 - **2D grid navigation.** `Ctrl+Opt+←/→/↑/↓` switches spaces by grid direction. Per-display: the display under the mouse cursor is the one that moves.
-- **Overview window.** `Ctrl+Opt+Space` shows a compact grid of thumbnails. Current space highlighted. Click any cell to jump. Auto-dismisses after 1s of idle.
+- **Pac-Man wrap.** Off any edge wraps to the opposite edge. Disable with `"wrap": false` in config.
+- **Overview window.** `Ctrl+Opt+Space` shows a compact grid of thumbnails. Cells are numbered `1`–`N` in reading order. Current space highlighted. Click any cell — or press its number key — to jump. Stays up 3s when opened manually, 1s when auto-shown after a navigation.
 - **Auto-appear on space change.** Switching by any means (Lattice's hotkey or Apple's `Ctrl+arrow`) pops the overview briefly so you always know where you are.
 - **Menu bar item.** Shows current position as `[col,row]`. Click for a list of all spaces with checkmark on current — click an entry to jump.
 - **Per-display grids.** Multiple monitors each get their own independent grid layout, sized to that display's space count by default.
@@ -23,6 +24,7 @@ macOS treats Spaces as a 1D list. Lattice lays them out as a 2D grid and lets yo
 | `Ctrl+Opt+↑` | Move one cell up |
 | `Ctrl+Opt+↓` | Move one cell down |
 | `Ctrl+Opt+Space` | Toggle overview |
+| `1`–`9` (when overview is open) | Jump to that cell |
 | `Esc` (when overview is open) | Dismiss overview |
 
 ## Requirements

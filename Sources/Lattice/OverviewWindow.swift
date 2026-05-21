@@ -2,11 +2,23 @@ import AppKit
 
 final class OverviewPanel: NSPanel {
     var onCancel: (() -> Void)?
+    var onNumberKey: ((Int) -> Void)?
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 
     override func cancelOperation(_ sender: Any?) {
         onCancel?()
+    }
+
+    override func keyDown(with event: NSEvent) {
+        guard let chars = event.charactersIgnoringModifiers,
+              let scalar = chars.unicodeScalars.first,
+              let digit = Int(String(scalar)),
+              digit >= 1, digit <= 9 else {
+            super.keyDown(with: event)
+            return
+        }
+        onNumberKey?(digit)
     }
 }
 
@@ -61,6 +73,7 @@ final class OverviewWindow {
     private let panel: OverviewPanel
     private let connection: CGSConnectionID = CGSMainConnectionID()
     private var onSelect: ((UInt64) -> Void)?
+    private var orderedSpaceIDs: [UInt64] = []
 
     init() {
         let frame = NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
@@ -81,6 +94,15 @@ final class OverviewWindow {
         p.sharingType = .none
         self.panel = p
         p.onCancel = { [weak self] in self?.hide() }
+        p.onNumberKey = { [weak self] n in self?.selectByNumber(n) }
+    }
+
+    private func selectByNumber(_ n: Int) {
+        let idx = n - 1
+        guard idx < orderedSpaceIDs.count else { return }
+        let id = orderedSpaceIDs[idx]
+        hide()
+        onSelect?(id)
     }
 
     var allowsScreenshot: Bool {
@@ -129,6 +151,7 @@ final class OverviewWindow {
         onSelect: @escaping (UInt64) -> Void
     ) {
         self.onSelect = onSelect
+        self.orderedSpaceIDs = spaceIDs
 
         let panelW = CGFloat(grid.cols) * cellW + CGFloat(grid.cols - 1) * cellGap + 2 * padding
         let panelH = CGFloat(grid.rows) * cellH + CGFloat(grid.rows - 1) * cellGap + 2 * padding
@@ -163,7 +186,7 @@ final class OverviewWindow {
                 btn.spaceID = spaceID
                 btn.isCurrent = (spaceID == currentSpaceID)
                 btn.thumbnail = thumbs.image(for: spaceID)
-                btn.label = "\(c + 1),\(r + 1)"
+                btn.label = "\(idx + 1)"
                 btn.target = self
                 btn.action = #selector(cellClicked(_:))
                 bg.addSubview(btn)
