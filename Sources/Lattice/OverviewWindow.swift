@@ -148,6 +148,7 @@ final class OverviewWindow {
         spaceIDs: [UInt64],
         currentSpaceID: UInt64,
         thumbs: ThumbnailCache,
+        onScreen: NSScreen,
         onSelect: @escaping (UInt64) -> Void
     ) {
         self.onSelect = onSelect
@@ -156,7 +157,7 @@ final class OverviewWindow {
         let panelW = CGFloat(grid.cols) * cellW + CGFloat(grid.cols - 1) * cellGap + 2 * padding
         let panelH = CGFloat(grid.rows) * cellH + CGFloat(grid.rows - 1) * cellGap + 2 * padding
 
-        let screenFrame = NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+        let screenFrame = onScreen.frame
         let originX = screenFrame.midX - panelW / 2
         let originY = screenFrame.midY - panelH / 2
         panel.setFrame(NSRect(x: originX, y: originY, width: panelW, height: panelH), display: false)

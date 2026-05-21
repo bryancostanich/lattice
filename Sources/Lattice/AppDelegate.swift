@@ -113,7 +113,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func showOverview(dismissAfter: TimeInterval? = nil) {
-        guard let screen = NSScreen.main,
+        let mouse = NSEvent.mouseLocation
+        let screen = NSScreen.screens.first { $0.frame.contains(mouse) } ?? NSScreen.main
+        guard let screen,
               let displayID = screen.displayID,
               let uuid = displayUUIDString(for: displayID),
               let display = spaceManager.displays().first(where: { $0.uuid == uuid })
@@ -128,7 +130,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 grid: grid,
                 spaceIDs: spaceIDs,
                 currentSpaceID: display.currentSpaceID,
-                thumbs: thumbs
+                thumbs: thumbs,
+                onScreen: screen
             ) { [weak self] selectedSpaceID in
                 self?.anchorManager.focus(spaceID: selectedSpaceID)
             }
