@@ -77,3 +77,30 @@ jobs:
         with:
           files: Lattice-${{ github.ref_name }}.zip
           generate_release_notes: true
+
+      - name: Bump tap cask
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          TAP_PUSH_TOKEN: ${{ secrets.TAP_PUSH_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          ZIP="Lattice-${GITHUB_REF_NAME}.zip"
+          SHA=$(shasum -a 256 "$ZIP" | awk '{print $1}')
+
+          git clone "https://x-access-token:${TAP_PUSH_TOKEN}@github.com/bryancostanich/homebrew-tap.git" tap
+          cd tap
+
+          /usr/bin/sed -i '' -E "s|^  version \"[^\"]*\"|  version \"${VERSION}\"|" Casks/lattice.rb
+          /usr/bin/sed -i '' -E "s|^  sha256 \"[^\"]*\"|  sha256 \"${SHA}\"|" Casks/lattice.rb
+
+          if git diff --quiet Casks/lattice.rb; then
+            echo "Cask already at ${VERSION} with matching SHA, nothing to do."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Casks/lattice.rb
+          git commit -m "lattice: bump to ${VERSION}"
+          git push
