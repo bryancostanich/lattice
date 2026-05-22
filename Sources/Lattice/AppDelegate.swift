@@ -45,6 +45,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var dismissTimer: Timer?
     private let autoDismissAfter: TimeInterval = 1.0
     private let manualDismissAfter: TimeInterval = 3.0
+    private var eventTap: CFMachPort?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Log.log("launch")
@@ -81,6 +82,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem.menu = menu
 
         registerHotkeys()
+        installDiagnosticEventTap()
         updateStatus()
 
         NSWorkspace.shared.notificationCenter.addObserver(
@@ -89,6 +91,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             name: NSWorkspace.activeSpaceDidChangeNotification,
             object: nil
         )
+    }
+
+    private func installDiagnosticEventTap() {
+        let mask = CGEventMask(1 << CGEventType.keyDown.rawValue)
+        let tap = CGEvent.tapCreate(
+            tap: .cgSessionEventTap,
+            place: .headInsertEventTap,
+            options: .listenOnly,
+            eventsOfInterest: mask,
+            callback: { _, _, event, _ in
+                let flags = event.flags
+                let needsCtrl = flags.contains(.maskControl)
+                let needsOpt = flags.contains(.maskAlternate)
+                guard needsCtrl, needsOpt else { return Unmanaged.passUnretained(event) }
+                let kc = event.getIntegerValueField(.keyboardEventKeycode)
+                let interesting: Set<Int64> = [49, 123, 124, 125, 126, 18, 19, 20, 21, 23, 22, 26, 28, 25]
+                if interesting.contains(kc) {
+                    Log.log("eventTap saw ctrl+opt keyCode=\(kc) flags=\(flags.rawValue)")
+                }
+                return Unmanaged.passUnretained(event)
+            },
+            userInfo: nil
+        )
+        guard let tap else {
+            Log.log("eventTap creation FAILED (Accessibility permission denied?)")
+            return
+        }
+        let src = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+        CFRunLoopAddSource(CFRunLoopGetCurrent(), src, .commonModes)
+        CGEvent.tapEnable(tap: tap, enable: true)
+        self.eventTap = tap
+        Log.log("diagnostic eventTap installed")
     }
 
     private func registerHotkeys() {
@@ -212,12 +246,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         allowShot.state = overview.allowsScreenshot ? .on : .off
         menu.addItem(allowShot)
 
+        let revealLog = NSMenuItem(title: "Reveal Log in Finder", action: #selector(revealLog), keyEquivalent: "")
+        revealLog.target = self
+        menu.addItem(revealLog)
+
+        let diag = NSMenuItem(title: "Log Diagnostics Snapshot", action: #selector(logDiagnostics), keyEquivalent: "")
+        diag.target = self
+        menu.addItem(diag)
+
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(
             title: "Quit Lattice",
             action: #selector(NSApplication.terminate(_:)),
             keyEquivalent: "q"
         ))
+    }
+
+    @objc private func revealLog() {
+        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: Log.path)])
+    }
+
+    @objc private func logDiagnostics() {
+        Log.log("--- diagnostics snapshot ---")
+        Log.log("bundle path=\(Bundle.main.bundlePath)")
+        Log.log("pid=\(ProcessInfo.processInfo.processIdentifier)")
+        Log.log("AX trusted=\(AXIsProcessTrustedWithOptions(nil))")
+        Log.log("screen capture preflight=\(CGPreflightScreenCaptureAccess())")
+        Log.log("NSScreen.screens=\(NSScreen.screens.count) main=\(String(describing: NSScreen.main?.localizedName))")
+        let displays = spaceManager.displays()
+        Log.log("spaceManager displays=\(displays.count)")
+        for d in displays {
+            Log.log("  display uuid=\(d.uuid) current=\(d.currentSpaceID) spaces=\(d.spaces.map { $0.id })")
+        }
+        Log.log("config wrap=\(config.wrap) defaultGrid=\(String(describing: config.defaultGrid)) overrideCount=\(config.displays.count)")
+        Log.log("eventTapInstalled=\(eventTap != nil)")
+        Log.log("--- end snapshot ---")
     }
 
     private func handFocusToTopmostApp() {
