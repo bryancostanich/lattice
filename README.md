@@ -76,6 +76,21 @@ macOS's space-switch animation is hardcoded to a horizontal slide regardless of 
 
 macOS will prompt the first time Lattice tries to capture a thumbnail. Without it, thumbnails will only show the wallpaper, not actual app windows.
 
+### 6. Create your spaces — required
+
+Lattice doesn't create spaces — it navigates the ones macOS already has. You need to add spaces yourself before Lattice has anything to navigate.
+
+Enter Mission Control:
+- **Hot key**: `Ctrl+↑`, or
+- **Trackpad**: swipe up with three or four fingers, or
+- **Launchpad / Mission Control app**: open it.
+
+At the top of the screen you'll see the **Spaces bar** with your current spaces (Desktop 1, Desktop 2, ...). Hover near the top edge if it's hidden. Click the **`+`** on the right to add a new space. Repeat until you have the count you want (e.g. 4 spaces for a 2×2 grid, 9 for a 3×3).
+
+Do this per display if you have multiple monitors.
+
+When you next launch Lattice (or click **Reload Config**), it will detect the new spaces and auto-fit the grid to match.
+
 ## Build from source
 
 ```sh
