@@ -1,0 +1,28 @@
+name: Feature request
+description: Suggest a feature or improvement
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: The underlying goal, not the proposed feature. "I want to jump straight to space 7" is more useful than "add ctrl+7 hotkey" — there might be a better solution.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How you'd like Lattice to behave.
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+      description: Other approaches (including 'live with it') and why this is the right one.
+    validations:
+      required: false

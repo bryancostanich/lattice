@@ -1,0 +1,86 @@
+name: Bug report
+description: Something in Lattice isn't working
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug. Lattice talks to private macOS APIs that drift between OS releases — the log file is almost always essential to figuring out what went wrong, so please attach it.
+
+        **Before you submit:**
+
+        1. In Lattice's menu bar, click **Log Diagnostics Snapshot** (this writes a state dump to the log).
+        2. Reproduce the bug once or twice so the bad behavior shows up in the log.
+        3. Click **Reveal Log in Finder**.
+        4. Drag the `lattice.log` file into the "Log file" field below.
+
+  - type: input
+    id: version
+    attributes:
+      label: Lattice version
+      description: From the menu bar item, or `Lattice.app/Contents/Info.plist` → CFBundleShortVersionString.
+      placeholder: "0.7.0"
+    validations:
+      required: true
+
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      description: Apple menu → About This Mac → version line.
+      placeholder: "26.4 (Tahoe)"
+    validations:
+      required: true
+
+  - type: input
+    id: hardware
+    attributes:
+      label: Mac model
+      description: System Settings → General → About → Model Name (or System Information).
+      placeholder: "MacBook Pro M1 Pro, 2 external displays"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what_happened
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, what actually happened.
+      placeholder: |
+        - I hit Ctrl+Opt+→ on display A.
+        - Expected: jump to the next space on display A.
+        - Actual: focus went to a window on display B instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: log
+    attributes:
+      label: Log file
+      description: Drag `lattice.log` (from "Reveal Log in Finder") into this field to attach it. Don't paste the contents — attach the file so we get the full history.
+      placeholder: "Drop lattice.log here."
+    validations:
+      required: true
+
+  - type: textarea
+    id: setup_checks
+    attributes:
+      label: Required macOS setup
+      description: Confirm the items from the README's Required macOS setup section.
+      value: |
+        - [ ] "Automatically rearrange Spaces" is OFF
+        - [ ] Lattice is enabled in Accessibility
+        - [ ] (Multi-monitor) "Displays have separate Spaces" is ON
+        - [ ] Lattice is enabled in Screen Recording (for thumbnails)
+        - [ ] I have created the spaces in Mission Control
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Custom config, keyboard remappers (Karabiner-Elements, BetterTouchTool, Hammerspoon, kmonad), other window managers, anything unusual.
+    validations:
+      required: false
