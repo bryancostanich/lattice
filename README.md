@@ -33,9 +33,18 @@ macOS treats Spaces as a 1D list. Lattice lays them out as a 2D grid and lets yo
 
 ## Install
 
+### Homebrew (recommended)
+
+```sh
+brew tap bryancostanich/tap
+brew install --cask lattice
+```
+
+### Manual
+
 Download the latest release from [Releases](https://github.com/bryancostanich/lattice/releases), unzip, drag `Lattice.app` to `/Applications`, open it.
 
-First launch shows the standard ad-hoc-signing warning — right-click → **Open** to bypass. Lattice appears in the menu bar; no Dock icon.
+Lattice appears in the menu bar; no Dock icon. Releases are signed with a Developer ID and notarized by Apple, so Gatekeeper opens them without a warning.
 
 ## Required macOS setup
 
