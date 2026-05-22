@@ -46,6 +46,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let autoDismissAfter: TimeInterval = 1.0
     private let manualDismissAfter: TimeInterval = 3.0
     private var eventTap: CFMachPort?
+    private var lastSwitchedDisplayUUID: String?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Log.log("launch")
@@ -167,6 +168,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 thumbs: thumbs,
                 onScreen: screen
             ) { [weak self] selectedSpaceID in
+                self?.lastSwitchedDisplayUUID = uuid
                 self?.anchorManager.focus(spaceID: selectedSpaceID)
             }
             overview.pinToAllSpaces(spaceIDs)
@@ -205,7 +207,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         let target = display.spaces[targetIdx]
-        Log.log("move \(direction): \(currentIdx) -> \(targetIdx) spaceID=\(target.id)")
+        Log.log("move \(direction): \(currentIdx) -> \(targetIdx) spaceID=\(target.id) display=\(uuid)")
+        lastSwitchedDisplayUUID = uuid
         anchorManager.focus(spaceID: target.id)
     }
 
@@ -289,16 +292,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return
         }
         let myPID = ProcessInfo.processInfo.processIdentifier
+
+        let targetCGFrame: CGRect? = {
+            guard let uuid = lastSwitchedDisplayUUID,
+                  let screen = NSScreen.screen(forDisplayUUID: uuid) else { return nil }
+            return screen.cgFrame
+        }()
+
         for dict in info {
             guard let layer = dict[kCGWindowLayer as String] as? Int, layer == 0,
                   let pid = dict[kCGWindowOwnerPID as String] as? Int32,
                   pid != myPID,
                   let app = NSRunningApplication(processIdentifier: pid) else { continue }
+
+            if let target = targetCGFrame,
+               let bounds = dict[kCGWindowBounds as String] as? [String: CGFloat],
+               let x = bounds["X"], let y = bounds["Y"], let w = bounds["Width"], let h = bounds["Height"] {
+                let center = CGPoint(x: x + w / 2, y: y + h / 2)
+                if !target.contains(center) { continue }
+            }
+
             app.activate()
-            Log.log("focus handed to pid=\(pid) app=\(app.localizedName ?? "?")")
+            Log.log("focus handed to pid=\(pid) app=\(app.localizedName ?? "?") onDisplay=\(lastSwitchedDisplayUUID ?? "<any>")")
             return
         }
-        Log.log("no app to focus, deactivating Lattice")
+        Log.log("no app to focus on display=\(lastSwitchedDisplayUUID ?? "<any>"), deactivating Lattice")
         NSApp.deactivate()
     }
 
@@ -308,6 +326,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func jumpToSpace(_ sender: NSMenuItem) {
         guard let id = (sender.representedObject as? NSNumber)?.uint64Value else { return }
+        if let d = spaceManager.displays().first(where: { $0.spaces.contains(where: { $0.id == id }) }) {
+            lastSwitchedDisplayUUID = d.uuid
+        }
         anchorManager.focus(spaceID: id)
     }
 
