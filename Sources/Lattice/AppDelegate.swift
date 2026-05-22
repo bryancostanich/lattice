@@ -303,21 +303,50 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             guard let layer = dict[kCGWindowLayer as String] as? Int, layer == 0,
                   let pid = dict[kCGWindowOwnerPID as String] as? Int32,
                   pid != myPID,
-                  let app = NSRunningApplication(processIdentifier: pid) else { continue }
+                  let app = NSRunningApplication(processIdentifier: pid),
+                  let cgWindowID = dict[kCGWindowNumber as String] as? CGWindowID,
+                  let bounds = dict[kCGWindowBounds as String] as? [String: CGFloat],
+                  let x = bounds["X"], let y = bounds["Y"],
+                  let w = bounds["Width"], let h = bounds["Height"] else { continue }
 
-            if let target = targetCGFrame,
-               let bounds = dict[kCGWindowBounds as String] as? [String: CGFloat],
-               let x = bounds["X"], let y = bounds["Y"], let w = bounds["Width"], let h = bounds["Height"] {
+            if let target = targetCGFrame {
                 let center = CGPoint(x: x + w / 2, y: y + h / 2)
                 if !target.contains(center) { continue }
             }
 
+            let winRect = CGRect(x: x, y: y, width: w, height: h)
             app.activate()
-            Log.log("focus handed to pid=\(pid) app=\(app.localizedName ?? "?") onDisplay=\(lastSwitchedDisplayUUID ?? "<any>")")
+            raiseAXWindow(pid: pid, matching: winRect, cgID: cgWindowID)
+            Log.log("focus handed to pid=\(pid) app=\(app.localizedName ?? "?") winID=\(cgWindowID) rect=\(winRect) onDisplay=\(lastSwitchedDisplayUUID ?? "<any>")")
             return
         }
         Log.log("no app to focus on display=\(lastSwitchedDisplayUUID ?? "<any>"), deactivating Lattice")
         NSApp.deactivate()
+    }
+
+    private func raiseAXWindow(pid: pid_t, matching cgRect: CGRect, cgID: CGWindowID) {
+        let axApp = AXUIElementCreateApplication(pid)
+        var windowsRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(axApp, kAXWindowsAttribute as CFString, &windowsRef) == .success,
+              let axWindows = windowsRef as? [AXUIElement] else { return }
+
+        for axWin in axWindows {
+            var posRef: CFTypeRef?
+            var sizeRef: CFTypeRef?
+            AXUIElementCopyAttributeValue(axWin, kAXPositionAttribute as CFString, &posRef)
+            AXUIElementCopyAttributeValue(axWin, kAXSizeAttribute as CFString, &sizeRef)
+            guard let pv = posRef, let sv = sizeRef else { continue }
+            var pos = CGPoint.zero
+            var size = CGSize.zero
+            AXValueGetValue(pv as! AXValue, .cgPoint, &pos)
+            AXValueGetValue(sv as! AXValue, .cgSize, &size)
+            if abs(pos.x - cgRect.minX) < 2, abs(pos.y - cgRect.minY) < 2,
+               abs(size.width - cgRect.width) < 2, abs(size.height - cgRect.height) < 2 {
+                AXUIElementPerformAction(axWin, kAXRaiseAction as CFString)
+                AXUIElementSetAttributeValue(axWin, kAXMainAttribute as CFString, kCFBooleanTrue)
+                return
+            }
+        }
     }
 
     @objc private func toggleAllowScreenshot() {

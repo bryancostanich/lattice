@@ -21,8 +21,18 @@ final class SpaceManager {
             return []
         }
         return raw.compactMap { dict in
-            guard let uuid = dict["Display Identifier"] as? String,
+            guard let rawIdentifier = dict["Display Identifier"] as? String,
                   let spacesRaw = dict["Spaces"] as? [[String: Any]] else { return nil }
+
+            // CGS sometimes returns the literal string "Main" instead of the
+            // real display UUID for the primary display. Normalize it so
+            // downstream lookups against CGDisplayCreateUUIDFromDisplayID match.
+            let uuid: String
+            if rawIdentifier == "Main", let mainUUID = SpaceManager.mainDisplayUUID() {
+                uuid = mainUUID
+            } else {
+                uuid = rawIdentifier
+            }
 
             let spaces: [SpaceInfo] = spacesRaw.compactMap { sp in
                 let n = (sp["ManagedSpaceID"] as? NSNumber) ?? (sp["id64"] as? NSNumber)
@@ -35,11 +45,18 @@ final class SpaceManager {
                let n = (cur["ManagedSpaceID"] as? NSNumber) ?? (cur["id64"] as? NSNumber) {
                 current = n.uint64Value
             } else {
-                current = CGSManagedDisplayGetCurrentSpace(connection, uuid as CFString)
+                // The CGS read-back call still uses the raw identifier that CGS gave us.
+                current = CGSManagedDisplayGetCurrentSpace(connection, rawIdentifier as CFString)
             }
 
             return DisplayInfo(uuid: uuid, currentSpaceID: current, spaces: spaces)
         }
+    }
+
+    private static func mainDisplayUUID() -> String? {
+        let mainID = CGMainDisplayID()
+        guard let ref = CGDisplayCreateUUIDFromDisplayID(mainID)?.takeRetainedValue() else { return nil }
+        return CFUUIDCreateString(nil, ref) as String?
     }
 
     func focus(spaceID: UInt64, on displayUUID: String) {
