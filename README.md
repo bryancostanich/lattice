@@ -27,6 +27,8 @@ macOS treats Spaces as a 1D list. Lattice lays them out as a 2D grid and lets yo
 | `1`–`9` (when overview is open) | Jump to that cell |
 | `Esc` (when overview is open) | Dismiss overview |
 
+The modifiers and the overview key are configurable, see [Config](#config).
+
 ## Requirements
 
 - macOS 14 (Sonoma) or later. Apple Silicon recommended.
@@ -85,6 +87,8 @@ macOS's space-switch animation is hardcoded to a horizontal slide regardless of 
 
 macOS will prompt the first time Lattice tries to capture a thumbnail. Without it, thumbnails will only show the wallpaper, not actual app windows.
 
+Not needed if you set `overview.tiles` to `"number"` in the config: Lattice then never captures the screen and never asks.
+
 ### 6. Create your spaces — required
 
 Lattice doesn't create spaces — it navigates the ones macOS already has. You need to add spaces yourself before Lattice has anything to navigate.
@@ -121,15 +125,33 @@ Optional. Lives at `~/.config/lattice/config.json`. Without it, Lattice auto-fit
   "displays": {
     "37D8832A-2D66-02CA-B9F7-8F30A301B230": { "cols": 4, "rows": 2 }
   },
-  "wrap": false
+  "wrap": false,
+  "hotkeys": {
+    "modifiers": ["ctrl", "opt"],
+    "overview": "space"
+  },
+  "overview": {
+    "tiles": "preview",
+    "hideAfterSwitch": 1.0,
+    "hideAfterOpen": 3.0
+  }
 }
 ```
 
-- `defaultGrid` (optional): fallback grid for any display without an entry in `displays`. Omit to use auto-fit.
-- `displays` (optional): per-display grid, keyed by display UUID. Display UUIDs are logged to `/tmp/lattice.log` on launch.
-- `wrap` (optional, default `false`): when `true`, navigating past an edge wraps to the opposite edge.
+Every key is optional; the values above for `hotkeys` and `overview` are the defaults.
 
-Click **Reload Config** in the menu bar after editing.
+- `defaultGrid`: fallback grid for any display without an entry in `displays`. Omit to use auto-fit.
+- `displays`: per-display grid, keyed by display UUID. Display UUIDs are logged to `/tmp/lattice.log` on launch.
+- `wrap` (default `false`): when `true`, navigating past an edge wraps to the opposite edge.
+- `hotkeys.modifiers` (default `["ctrl", "opt"]`): modifiers held with the arrow keys and the overview key. Any combination of `ctrl`, `opt`, `cmd`, `shift`.
+- `hotkeys.overview` (default `"space"`): key that toggles the overview, pressed with the same modifiers. `space`, `return`, `tab`, a letter or a digit.
+- `overview.tiles` (default `"preview"`): what each tile shows. `"preview"` is a screenshot of the space with its number in the corner. `"number"` is the number alone, large and centred, on a compact panel; it needs no Screen Recording permission.
+- `overview.hideAfterSwitch` (default `1.0`): seconds the overview stays up after a space switch. `0` disables the pop-up.
+- `overview.hideAfterOpen` (default `3.0`): seconds the overview stays up after you open it with the hotkey.
+
+If a hotkey setting is not recognised, Lattice logs it and falls back to the defaults.
+
+Click **Reload Config** in the menu bar after editing. Hotkeys are re-registered on reload.
 
 ## How it works
 

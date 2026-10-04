@@ -27,6 +27,8 @@ final class OverviewCellButton: NSButton {
     var isCurrent: Bool = false
     var thumbnail: NSImage?
     var label: String = ""
+    /// Number-only tiles draw the label large and centred instead of in the corner.
+    var largeLabel: Bool = false
 
     override var wantsUpdateLayer: Bool { false }
 
@@ -51,6 +53,24 @@ final class OverviewCellButton: NSButton {
             path.lineWidth = 1
         }
         path.stroke()
+
+        if largeLabel {
+            if isCurrent {
+                NSColor.controlAccentColor.withAlphaComponent(0.35).setFill()
+                path.fill()
+            }
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: floor(bounds.height * 0.55), weight: .semibold),
+                .foregroundColor: NSColor.white.withAlphaComponent(isCurrent ? 1.0 : 0.6),
+            ]
+            let str = label as NSString
+            let size = str.size(withAttributes: attrs)
+            str.draw(
+                at: NSPoint(x: bounds.midX - size.width / 2, y: bounds.midY - size.height / 2),
+                withAttributes: attrs
+            )
+            return
+        }
 
         let attrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 28, weight: .semibold),
@@ -137,8 +157,6 @@ final class OverviewWindow {
         }
     }
 
-    private let cellW: CGFloat = 160
-    private let cellH: CGFloat = 100
     private let cellGap: CGFloat = 10
     private let padding: CGFloat = 14
     private let cornerRadius: CGFloat = 14
@@ -148,11 +166,16 @@ final class OverviewWindow {
         spaceIDs: [UInt64],
         currentSpaceID: UInt64,
         thumbs: ThumbnailCache,
+        tiles: OverviewTiles,
         onScreen: NSScreen,
         onSelect: @escaping (UInt64) -> Void
     ) {
         self.onSelect = onSelect
         self.orderedSpaceIDs = spaceIDs
+
+        // Number-only tiles carry no picture, so the panel can be a compact HUD.
+        let cellW: CGFloat = tiles == .preview ? 160 : 88
+        let cellH: CGFloat = tiles == .preview ? 100 : 56
 
         let panelW = CGFloat(grid.cols) * cellW + CGFloat(grid.cols - 1) * cellGap + 2 * padding
         let panelH = CGFloat(grid.rows) * cellH + CGFloat(grid.rows - 1) * cellGap + 2 * padding
@@ -186,7 +209,8 @@ final class OverviewWindow {
                 btn.isBordered = false
                 btn.spaceID = spaceID
                 btn.isCurrent = (spaceID == currentSpaceID)
-                btn.thumbnail = thumbs.image(for: spaceID)
+                btn.thumbnail = tiles == .preview ? thumbs.image(for: spaceID) : nil
+                btn.largeLabel = tiles == .number
                 btn.label = "\(idx + 1)"
                 btn.target = self
                 btn.action = #selector(cellClicked(_:))

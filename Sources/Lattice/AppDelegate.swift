@@ -28,6 +28,10 @@ extension NSScreen {
     }
 }
 
+/// Modifiers the diagnostic event tap looks for. A global because the tap callback is a C function
+/// pointer and cannot capture state; kept in sync with the configured hotkeys.
+private var diagnosticModifierFlags: CGEventFlags = HotkeyConfig.default.eventFlags
+
 func displayUUIDString(for displayID: CGDirectDisplayID) -> String? {
     guard let uuidRef = CGDisplayCreateUUIDFromDisplayID(displayID)?.takeRetainedValue() else {
         return nil
@@ -43,8 +47,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let overview = OverviewWindow()
     private var config: Config = .default
     private var dismissTimer: Timer?
-    private let autoDismissAfter: TimeInterval = 1.0
-    private let manualDismissAfter: TimeInterval = 3.0
     private var eventTap: CFMachPort?
     private var lastSwitchedDisplayUUID: String?
 
@@ -55,14 +57,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let trusted = AXIsProcessTrustedWithOptions(opts)
         Log.log("accessibility trusted=\(trusted)")
 
-        let screenPreflight = CGPreflightScreenCaptureAccess()
-        Log.log("screen capture preflight=\(screenPreflight)")
-        if !screenPreflight {
-            let requested = CGRequestScreenCaptureAccess()
-            Log.log("screen capture access requested=\(requested)")
-        }
-
         config = Config.load()
+
+        if config.overview.tiles == .preview {
+            let screenPreflight = CGPreflightScreenCaptureAccess()
+            Log.log("screen capture preflight=\(screenPreflight)")
+            if !screenPreflight {
+                let requested = CGRequestScreenCaptureAccess()
+                Log.log("screen capture access requested=\(requested)")
+            }
+        } else {
+            Log.log("screen capture not needed (overview.tiles=number)")
+        }
 
         let displays = spaceManager.displays()
         Log.log("displays=\(displays.count)")
@@ -71,7 +77,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         anchorManager.sync(spaceIDs: displays.flatMap { $0.spaces.map { $0.id } })
         for d in displays {
-            if let screen = NSScreen.screen(forDisplayUUID: d.uuid) {
+            if config.overview.tiles == .preview, let screen = NSScreen.screen(forDisplayUUID: d.uuid) {
                 thumbs.capture(spaceID: d.currentSpaceID, screen: screen)
             }
         }
@@ -103,13 +109,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             eventsOfInterest: mask,
             callback: { _, _, event, _ in
                 let flags = event.flags
-                let needsCtrl = flags.contains(.maskControl)
-                let needsOpt = flags.contains(.maskAlternate)
-                guard needsCtrl, needsOpt else { return Unmanaged.passUnretained(event) }
+                guard flags.contains(diagnosticModifierFlags) else { return Unmanaged.passUnretained(event) }
                 let kc = event.getIntegerValueField(.keyboardEventKeycode)
                 let interesting: Set<Int64> = [49, 123, 124, 125, 126, 18, 19, 20, 21, 23, 22, 26, 28, 25]
                 if interesting.contains(kc) {
-                    Log.log("eventTap saw ctrl+opt keyCode=\(kc) flags=\(flags.rawValue)")
+                    Log.log("eventTap saw hotkey modifiers keyCode=\(kc) flags=\(flags.rawValue)")
                 }
                 return Unmanaged.passUnretained(event)
             },
@@ -127,14 +131,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func registerHotkeys() {
-        let mods = UInt32(controlKey | optionKey)
         let mgr = HotkeyManager.shared
+        mgr.unregisterAll()
+
+        var hotkeys = config.hotkeys
+        if hotkeys.carbonModifiers == nil || hotkeys.overviewKeyCode == nil {
+            Log.log("hotkeys: invalid config (modifiers=\(hotkeys.modifiers) overview=\(hotkeys.overview)); using defaults")
+            hotkeys = .default
+        }
+        guard let mods = hotkeys.carbonModifiers, let overviewKey = hotkeys.overviewKeyCode else { return }
+        diagnosticModifierFlags = hotkeys.eventFlags
+
         mgr.register(keyCode: UInt32(kVK_LeftArrow),  modifiers: mods) { [weak self] in Log.log("hotkey left"); self?.move(.left) }
         mgr.register(keyCode: UInt32(kVK_RightArrow), modifiers: mods) { [weak self] in Log.log("hotkey right"); self?.move(.right) }
         mgr.register(keyCode: UInt32(kVK_UpArrow),    modifiers: mods) { [weak self] in Log.log("hotkey up"); self?.move(.up) }
         mgr.register(keyCode: UInt32(kVK_DownArrow),  modifiers: mods) { [weak self] in Log.log("hotkey down"); self?.move(.down) }
-        mgr.register(keyCode: UInt32(kVK_Space),      modifiers: mods) { [weak self] in Log.log("hotkey overview"); self?.toggleOverview() }
-        Log.log("registered hotkeys ctrl+opt+arrows + ctrl+opt+space")
+        mgr.register(keyCode: overviewKey,            modifiers: mods) { [weak self] in Log.log("hotkey overview"); self?.toggleOverview() }
+        Log.log("registered hotkeys \(hotkeys.modifiersDescription)+arrows + \(hotkeys.modifiersDescription)+\(hotkeys.overview.lowercased())")
     }
 
     private func toggleOverview() {
@@ -144,10 +157,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             overview.hide()
             return
         }
-        showOverview(dismissAfter: manualDismissAfter)
+        showOverview(dismissAfter: config.overview.hideAfterOpen)
     }
 
-    private func showOverview(dismissAfter: TimeInterval? = nil) {
+    private func showOverview(dismissAfter: TimeInterval) {
         let mouse = NSEvent.mouseLocation
         let screen = NSScreen.screens.first { $0.frame.contains(mouse) } ?? NSScreen.main
         guard let screen,
@@ -166,6 +179,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 spaceIDs: spaceIDs,
                 currentSpaceID: display.currentSpaceID,
                 thumbs: thumbs,
+                tiles: config.overview.tiles,
                 onScreen: screen
             ) { [weak self] selectedSpaceID in
                 self?.lastSwitchedDisplayUUID = uuid
@@ -173,7 +187,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             overview.pinToAllSpaces(spaceIDs)
         }
-        resetDismissTimer(interval: dismissAfter ?? autoDismissAfter)
+        resetDismissTimer(interval: dismissAfter)
     }
 
     private func resetDismissTimer(interval: TimeInterval) {
@@ -214,6 +228,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func reloadConfig() {
         config = Config.load()
+        registerHotkeys()
+        overview.hide()
         updateStatus()
     }
 
@@ -282,6 +298,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             Log.log("  display uuid=\(d.uuid) current=\(d.currentSpaceID) spaces=\(d.spaces.map { $0.id })")
         }
         Log.log("config wrap=\(config.wrap) defaultGrid=\(String(describing: config.defaultGrid)) overrideCount=\(config.displays.count)")
+        Log.log("config hotkeys=\(config.hotkeys.modifiersDescription)+arrows overviewKey=\(config.hotkeys.overview) tiles=\(config.overview.tiles.rawValue) hideAfterSwitch=\(config.overview.hideAfterSwitch) hideAfterOpen=\(config.overview.hideAfterOpen)")
         Log.log("eventTapInstalled=\(eventTap != nil)")
         Log.log("--- end snapshot ---")
     }
@@ -370,8 +387,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.handFocusToTopmostApp()
         }
 
-        showOverview()
+        // After a switch the overview pops up briefly; hideAfterSwitch = 0 turns that off.
+        let hideAfterSwitch = config.overview.hideAfterSwitch
+        if hideAfterSwitch > 0 {
+            showOverview(dismissAfter: hideAfterSwitch)
+        }
 
+        guard config.overview.tiles == .preview else { return }
         let captures: [(UInt64, NSScreen)] = displays.compactMap { d in
             guard let screen = NSScreen.screen(forDisplayUUID: d.uuid) else { return nil }
             return (d.currentSpaceID, screen)

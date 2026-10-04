@@ -54,4 +54,13 @@ final class HotkeyManager {
         Log.log("RegisterEventHotKey keyCode=\(keyCode) mods=\(modifiers) id=\(id) status=\(status)")
         refs.append(ref)
     }
+
+    /// Drops every registered hotkey so a new set can be registered (config reload).
+    func unregisterAll() {
+        for ref in refs {
+            if let ref { UnregisterEventHotKey(ref) }
+        }
+        refs.removeAll()
+        handlers.removeAll()
+    }
 }
