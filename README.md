@@ -134,7 +134,8 @@ Optional. Lives at `~/.config/lattice/config.json`. Without it, Lattice auto-fit
     "tiles": "preview",
     "hideAfterSwitch": 1.0,
     "hideAfterOpen": 3.0
-  }
+  },
+  "startAtLogin": true
 }
 ```
 
@@ -148,6 +149,7 @@ Every key is optional; the values above for `hotkeys` and `overview` are the def
 - `overview.tiles` (default `"preview"`): what each tile shows. `"preview"` is a screenshot of the space with its number in the corner. `"number"` is the number alone, large and centred, on a compact panel; it needs no Screen Recording permission.
 - `overview.hideAfterSwitch` (default `1.0`): seconds the overview stays up after a space switch. `0` disables the pop-up.
 - `overview.hideAfterOpen` (default `3.0`): seconds the overview stays up after you open it with the hotkey.
+- `startAtLogin` (no default): `true` registers Lattice as a login item so it opens when you log in; `false` removes it. Leave the key out and Lattice never touches your login items. macOS lists it under **System Settings → General → Login Items**.
 
 If a hotkey setting is not recognised, Lattice logs it and falls back to the defaults.
 

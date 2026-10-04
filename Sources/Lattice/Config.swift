@@ -109,9 +109,11 @@ struct Config: Codable {
     var wrap: Bool
     var hotkeys: HotkeyConfig
     var overview: OverviewConfig
+    /// `true` registers Lattice as a login item, `false` removes it, absent leaves it untouched.
+    var startAtLogin: Bool?
 
     static let `default` = Config(
-        displays: [:], defaultGrid: nil, wrap: true, hotkeys: .default, overview: .default
+        displays: [:], defaultGrid: nil, wrap: true, hotkeys: .default, overview: .default, startAtLogin: nil
     )
 
     init(
@@ -119,13 +121,15 @@ struct Config: Codable {
         defaultGrid: GridLayout?,
         wrap: Bool,
         hotkeys: HotkeyConfig,
-        overview: OverviewConfig
+        overview: OverviewConfig,
+        startAtLogin: Bool?
     ) {
         self.displays = displays
         self.defaultGrid = defaultGrid
         self.wrap = wrap
         self.hotkeys = hotkeys
         self.overview = overview
+        self.startAtLogin = startAtLogin
     }
 
     /// Every key is optional, so a config file only needs the settings it changes.
@@ -136,6 +140,7 @@ struct Config: Codable {
         wrap = try c.decodeIfPresent(Bool.self, forKey: .wrap) ?? false
         hotkeys = try c.decodeIfPresent(HotkeyConfig.self, forKey: .hotkeys) ?? .default
         overview = try c.decodeIfPresent(OverviewConfig.self, forKey: .overview) ?? .default
+        startAtLogin = try c.decodeIfPresent(Bool.self, forKey: .startAtLogin)
     }
 
     func grid(for displayUUID: String, spaceCount: Int) -> GridLayout {

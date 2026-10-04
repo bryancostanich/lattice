@@ -58,6 +58,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         Log.log("accessibility trusted=\(trusted)")
 
         config = Config.load()
+        LoginItem.apply(config.startAtLogin)
 
         if config.overview.tiles == .preview {
             let screenPreflight = CGPreflightScreenCaptureAccess()
@@ -228,6 +229,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func reloadConfig() {
         config = Config.load()
+        LoginItem.apply(config.startAtLogin)
         registerHotkeys()
         overview.hide()
         updateStatus()
@@ -299,6 +301,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         Log.log("config wrap=\(config.wrap) defaultGrid=\(String(describing: config.defaultGrid)) overrideCount=\(config.displays.count)")
         Log.log("config hotkeys=\(config.hotkeys.modifiersDescription)+arrows overviewKey=\(config.hotkeys.overview) tiles=\(config.overview.tiles.rawValue) hideAfterSwitch=\(config.overview.hideAfterSwitch) hideAfterOpen=\(config.overview.hideAfterOpen)")
+        Log.log("config startAtLogin=\(String(describing: config.startAtLogin)) loginItemStatus=\(LoginItem.statusDescription)")
         Log.log("eventTapInstalled=\(eventTap != nil)")
         Log.log("--- end snapshot ---")
     }
